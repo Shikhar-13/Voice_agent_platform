@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#6B7280',
+                        success: '#10B981',
+                        danger: '#EF4444',
+                        warning: '#F59E0B'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">AI Voice Assistant</h1>
+                    <p class="text-gray-600 mt-2">Real-time voice interaction powered by AI</p>
+                </div>
+                <div id="connection-status" class="flex items-center space-x-2">
+                    <span class="h-3 w-3 rounded-full bg-gray-400" id="status-indicator"></span>
+                    <span class="text-sm font-medium text-gray-600" id="status-text">Disconnected</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Model Selection Panel -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-6 text-gray-800">AI Models</h2>
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Language Model</label>
+                        <select id="llm-select" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+                            <option value="openai" selected>OpenAI</option>
+                            <option value="deepseek" selected>Deepseek</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Transicription model</label>
+                        <select id="transcriber-select" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+                            <option value="deepgram" selected>Deepgram</option>
+                            <option value="whisper">Whisper</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium text-gray-700">Voice model</label>
+                        <select id="voice-select" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-primary">
+                            <option value="elevenlabs" selected>ElevenLabs</option>
+                            <option value="azure">Deepgram</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Voice Interaction Panel -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Voice Controls -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-semibold text-gray-800">Voice Controls</h2>
+                        <div class="flex items-center space-x-4">
+                            <button id="connect-btn" 
+                                    class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors">
+                                Connect
+                            </button>
+                            <button id="disconnect-btn" 
+                                    class="px-4 py-2 rounded-lg bg-gray-500 text-white hover:bg-gray-600 transition-colors" 
+                                    disabled>
+                                Disconnect
+                            </button>
+                            <button id="test-voice" 
+                                    class="px-6 py-3 rounded-full bg-warning text-white hover:bg-warning/90 transition-colors">
+                                Test Voice
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center justify-center space-x-4">
+                        <button id="start-recording" 
+                                class="flex items-center space-x-2 px-6 py-3 rounded-full bg-danger text-white hover:bg-danger/90 transition-colors disabled:opacity-50">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <circle cx="10" cy="10" r="6"/>
+                            </svg>
+                            <span>Start Speaking</span>
+                        </button>
+                        <button id="stop-recording" 
+                                class="px-6 py-3 rounded-full bg-gray-500 text-white hover:bg-gray-600 transition-colors disabled:opacity-50" 
+                                disabled>
+                            Stop
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Conversation Display -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Conversation</h2>
+                    <div class="space-y-4">
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">Your Message</h3>
+                            <p id="transcription" class="text-gray-800">Waiting for speech input...</p>
+                        </div>
+                        <div class="bg-primary/5 rounded-lg p-4">
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">AI Response</h3>
+                            <p id="response" class="text-gray-800">AI response will appear here...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Messages -->
+        <div id="error-container" class="fixed bottom-4 right-4 max-w-md"></div>
+
+        <!-- Add this for volume visualization -->
+        <div class="mt-4">
+            <div class="bg-gray-200 rounded-full h-2">
+                <div id="volume-indicator" class="bg-success h-full rounded-full transition-all duration-200"></div>
+            </div>
+        </div>
+
+        <!-- Add this HTML element if it's missing -->
+        <div id="quotas" class="text-sm font-mono bg-gray-100 p-2 rounded">
+            Quota information will appear here...
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let audioContext = null;
+        let scriptProcessor = null;
+        let mediaStream = null;
+        const clientId = 'test-' + Math.random().toString(36).substr(2, 9);
+
+        async function setupAudioProcessing() {
+            try {
+                console.log('Setting up audio processing...');
+                if (!audioContext || audioContext.state === 'closed') {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                        sampleRate: 44100
+                    });
+                    console.log('Created new AudioContext');
+                }
+
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+
+                mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        channelCount: 1,
+                        sampleRate: 44100,
+                        sampleSize: 16
+                    } 
+                });
+
+                const source = audioContext.createMediaStreamSource(mediaStream);
+                
+                // Create ScriptProcessor instead of AudioWorklet
+                scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                
+                scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
+                    const inputBuffer = audioProcessingEvent.inputBuffer;
+                    const inputData = inputBuffer.getChannelData(0);
+                    
+                    // Convert to Int16
+                    const pcmData = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        const s = Math.max(-1, Math.min(1, inputData[i]));
+                        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                    }
+                    
+                    // Send data to server
+                    const message = JSON.stringify({
+                        type: 'audio_data',
+                        data: Array.from(pcmData),
+                        sampleRate: 44100,
+                        channels: 1
+                    });
+                    safeSendWebSocket(message);
+                };
+
+                source.connect(scriptProcessor);
+                scriptProcessor.connect(audioContext.destination);
+
+                updateStatus('streaming');
+                console.log('Audio processing setup complete');
+            } catch (error) {
+                console.error('Audio setup failed:', error);
+                showError('Audio setup failed: ' + error.message);
+                throw error;
+            }
+        }
+
+        function isAudioSetupComplete() {
+            return scriptProcessor && 
+                   audioContext && 
+                   audioContext.state === 'running' && 
+                   mediaStream;
+        }
+
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket(`ws://${window.location.host}/ws/${clientId}`);
+                
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    updateStatus('Connected');
+                    initializeServices();
+                };
+
+                ws.onmessage = async (event) => {
+                    try {
+                        console.log('Received WebSocket message:', event.data);
+                        if (event.data instanceof Blob) {
+                            const audioBuffer = await event.data.arrayBuffer();
+                            playAudioResponse(audioBuffer);
+                        } else {
+                            const data = typeof event.data === 'string' 
+                                ? JSON.parse(event.data) 
+                                : event.data;
+                            handleWebSocketMessage(data);
+                        }
+                    } catch (error) {
+                        console.error('Error handling message:', error);
+                        showError('Error handling message: ' + error);
+                    }
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    ws = null;
+                    updateStatus('Disconnected');
+                    document.getElementById('connect-btn').disabled = false;
+                    document.getElementById('disconnect-btn').disabled = true;
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    showError('WebSocket error: ' + error);
+                    ws = null;
+                };
+
+            } catch (error) {
+                console.error('Error connecting WebSocket:', error);
+                showError('Failed to connect: ' + error.message);
+                ws = null;
+            }
+        }
+
+        function safeSendWebSocket(message) {
+            if (!ws) {
+                console.error('WebSocket is not connected');
+                showError('Not connected to server');
+                return false;
+            }
+
+            if (ws.readyState !== WebSocket.OPEN) {
+                console.error('WebSocket is not open');
+                showError('Connection is not ready');
+                return false;
+            }
+
+            try {
+                ws.send(message);
+                return true;
+            } catch (error) {
+                console.error('Error sending message:', error);
+                showError('Failed to send message: ' + error.message);
+                return false;
+            }
+        }
+
+        function stopStreaming() {
+            try {
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                }
+                if (scriptProcessor) {
+                    scriptProcessor.disconnect();
+                    scriptProcessor = null;
+                }
+                if (audioContext) {
+                    audioContext.suspend();
+                }
+                
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    safeSendWebSocket(JSON.stringify({ 
+                        type: 'stop',
+                        client_id: clientId
+                    }));
+                }
+
+                updateStatus('connected');
+            } catch (error) {
+                console.error('Error stopping stream:', error);
+                showError('Error stopping stream: ' + error.message);
+            }
+        }
+
+        async function playAudioResponse(audioBuffer) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createBufferSource();
+                const buffer = await audioContext.decodeAudioData(audioBuffer);
+                source.buffer = buffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+            } catch (error) {
+                showError('Error playing audio: ' + error);
+            }
+        }
+
+        function stopStream() {
+            if (!ws) {
+                showError('Not connected!');
+                return;
+            }
+            
+            try {
+                // Stop recording
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                }
+                if (scriptProcessor) {
+                    scriptProcessor.disconnect();
+                    scriptProcessor = null;
+                }
+                // Don't close AudioContext, just suspend it
+                if (audioContext) {
+                    audioContext.suspend();
+                }
+
+                // Send stop signal to server
+                ws.send(JSON.stringify({ 
+                    type: 'stop',
+                    client_id: clientId
+                }));
+
+                // Update UI
+                updateStatus('connected');
+            } catch (error) {
+                showError('Error stopping stream: ' + error.message);
+            }
+        }
+
+        function disconnect() {
+            try {
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                    mediaStream = null;
+                }
+                
+                if (scriptProcessor) {
+                    scriptProcessor.disconnect();
+                    scriptProcessor = null;
+                }
+                
+                if (audioContext) {
+                    audioContext.close().then(() => {
+                        audioContext = null;
+                        console.log('AudioContext closed and cleaned up');
+                    });
+                }
+
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    safeSendWebSocket(JSON.stringify({ 
+                        type: 'disconnect',
+                        client_id: clientId 
+                    }));
+                    ws.close();
+                }
+                ws = null;
+
+                updateStatus('disconnected');
+            } catch (error) {
+                console.error('Error disconnecting:', error);
+                showError('Error disconnecting: ' + error.message);
+            }
+        }
+
+        async function updateQuotas() {
+            try {
+                const quotasElement = document.getElementById('quotas');
+                if (!quotasElement) {
+                    console.warn('Quotas element not found in DOM');
+                    return;
+                }
+
+                const response = await fetch('/quotas');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const quotas = await response.json();
+                
+                // Format quotas for display
+                const formattedQuotas = Object.entries(quotas).map(([service, data]) => {
+                    return `${service}: ${JSON.stringify(data, null, 2)}`;
+                }).join('\n');
+                
+                quotasElement.textContent = formattedQuotas;
+            } catch (error) {
+                console.error('Error fetching quotas:', error);
+                const quotasElement = document.getElementById('quotas');
+                if (quotasElement) {
+                    quotasElement.textContent = 'Error loading quotas';
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Connect button
+            document.getElementById('connect-btn').addEventListener('click', () => {
+                if (!ws) {
+                    connectWebSocket();
+                }
+            });
+
+            // Disconnect button
+            document.getElementById('disconnect-btn').addEventListener('click', disconnect);
+
+            // Test voice button
+            document.getElementById('test-voice').addEventListener('click', async () => {
+                try {
+                    if (!ws || ws.readyState !== WebSocket.OPEN) {
+                        await connectWebSocket();
+                    }
+                    safeSendWebSocket(JSON.stringify({
+                        type: 'test',
+                        message: 'Hello, this is a test message.'
+                    }));
+                } catch (error) {
+                    showError('Voice test failed: ' + error.message);
+                }
+            });
+
+            // Initialize quotas
+            updateQuotas();
+            setInterval(updateQuotas, 5000);
+        });
+
+        function updateStatus(status) {
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            switch(status) {
+                case 'connected':
+                    indicator.className = 'h-3 w-3 rounded-full bg-success';
+                    statusText.textContent = 'Connected';
+                    document.getElementById('connect-btn').disabled = true;
+                    document.getElementById('disconnect-btn').disabled = false;
+                    break;
+                case 'disconnected':
+                    indicator.className = 'h-3 w-3 rounded-full bg-gray-400';
+                    statusText.textContent = 'Disconnected';
+                    document.getElementById('connect-btn').disabled = false;
+                    document.getElementById('disconnect-btn').disabled = true;
+                    break;
+                case 'streaming':
+                    indicator.className = 'h-3 w-3 rounded-full bg-danger animate-pulse';
+                    statusText.textContent = 'Streaming...';
+                    break;
+                default:
+                    indicator.className = 'h-3 w-3 rounded-full bg-warning';
+                    statusText.textContent = status;
+            }
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            if (errorContainer) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'bg-danger text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in';
+                errorDiv.textContent = message;
+                
+                // Remove error after 5 seconds
+                setTimeout(() => {
+                    errorDiv.classList.add('animate-fade-out');
+                    setTimeout(() => errorDiv.remove(), 300);
+                }, 5000);
+                
+                errorContainer.appendChild(errorDiv);
+            } else {
+                console.error('Error container not found:', message);
+            }
+        }
+
+        // Add event listeners for the new buttons
+        document.getElementById('connect-btn').addEventListener('click', connectWebSocket);
+        document.getElementById('disconnect-btn').addEventListener('click', disconnect);
+
+        // Add animation classes
+        const styles = document.createElement('style');
+        styles.textContent = `
+            @keyframes fade-in {
+                from { opacity: 0; transform: translateY(1rem); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes fade-out {
+                from { opacity: 1; transform: translateY(0); }
+                to { opacity: 0; transform: translateY(1rem); }
+            }
+            .animate-fade-in {
+                animation: fade-in 0.3s ease-out;
+            }
+            .animate-fade-out {
+                animation: fade-out 0.3s ease-out;
+            }
+        `;
+        document.head.appendChild(styles);
+
+        // Test voice functionality
+        document.getElementById('test-voice').addEventListener('click', async () => {
+            try {
+                updateStatus('Testing voice...');
+                
+                // Test microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop()); // Stop the stream after test
+                
+                // Test WebSocket connection
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    await connectWebSocket();
+                }
+                
+                // Send a test message
+                ws.send(JSON.stringify({
+                    type: 'test',
+                    message: 'Hello, this is a test message.'
+                }));
+                
+                updateStatus('Voice test complete');
+            } catch (error) {
+                showError('Voice test failed: ' + error.message);
+            }
+        });
+
+        // Add these diagnostic functions
+        function checkAudioDevices() {
+            navigator.mediaDevices.enumerateDevices()
+                .then(devices => {
+                    const audioDevices = devices.filter(device => device.kind === 'audioinput');
+                    console.log('Available audio devices:', audioDevices);
+                    updateStatus(`Found ${audioDevices.length} audio devices`);
+                })
+                .catch(err => showError('Error checking audio devices: ' + err));
+        }
+
+        function testAudioPlayback() {
+            const testAudio = new Audio();
+            testAudio.src = 'data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBIAAAABAAEAQB8AAEAfAAABAAgAAABmYWN0BAAAAAAAAABkYXRhAAAAAA==';
+            testAudio.play()
+                .then(() => updateStatus('Audio playback working'))
+                .catch(err => showError('Audio playback failed: ' + err));
+        }
+
+        // Add visual feedback for audio levels
+        function showAudioLevel(stream) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const analyser = audioContext.createAnalyser();
+            const microphone = audioContext.createMediaStreamSource(stream);
+            microphone.connect(analyser);
+            
+            analyser.fftSize = 256;
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            function draw() {
+                requestAnimationFrame(draw);
+                analyser.getByteFrequencyData(dataArray);
+                
+                // Calculate average volume
+                const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+                
+                // Update UI with volume level
+                const volumeIndicator = document.getElementById('volume-indicator');
+                volumeIndicator.style.width = `${average}%`;
+                volumeIndicator.style.backgroundColor = 
+                    average > 75 ? '#EF4444' :  // High volume
+                    average > 30 ? '#F59E0B' :  // Medium volume
+                    '#10B981';                  // Low volume
+            }
+            
+            draw();
+        }
+
+        // Function to handle model switching and integration with backend
+        function switchModel(modelType, modelName) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showError('Not connected to server. Please connect first.');
+                return;
+            }
+
+            try {
+                ws.send(JSON.stringify({
+                    type: 'switch_model',
+                    modelType: modelType,
+                    modelName: modelName
+                }));
+            } catch (error) {
+                showError(`Failed to switch ${modelType}: ${error.message}`);
+            }
+        }
+
+        // Function to initialize services based on selected models
+        async function initializeServices() {
+            try {
+                const config = {
+                    llm_service: document.getElementById('llm-select').value,
+                    transcriber_service: document.getElementById('transcriber-select').value,
+                    voice_service: document.getElementById('voice-select').value
+                };
+
+                // Send initialization request to backend
+                ws.send(JSON.stringify({
+                    type: 'initialize',
+                    config: config
+                }));
+            } catch (error) {
+                showError(`Failed to initialize services: ${error.message}`);
+            }
+        }
+
+        // Function to handle errors from different services
+        function handleError(error) {
+            if (typeof error === 'string') {
+                if (error.includes('insufficient_quota')) {
+                    handleQuotaError(error);
+                } else {
+                    showError(error);
+                }
+            } else if (error.service) {
+                // Handle service-specific errors
+                handleServiceError(error.service, error.message);
+            } else {
+                showError('An unknown error occurred');
+            }
+        }
+
+        // Function to handle quota errors
+        function handleQuotaError(error) {
+            showError('API quota exceeded. Please check your API key or billing details.');
+            
+            // Disable the affected service in the selector
+            if (error.includes('openai')) {
+                disableService('llm-select', 'openai');
+            } else if (error.includes('deepgram')) {
+                disableService('transcriber-select', 'deepgram');
+            } else if (error.includes('elevenlabs')) {
+                disableService('voice-select', 'elevenlabs');
+            }
+        }
+
+        // Function to disable a service in the selector
+        function disableService(selectId, serviceName) {
+            const select = document.getElementById(selectId);
+            Array.from(select.options)
+                .filter(option => option.value === serviceName)
+                .forEach(option => option.disabled = true);
+            
+            // Switch to an alternative service if available
+            const availableOption = Array.from(select.options)
+                .find(option => !option.disabled);
+            if (availableOption) {
+                select.value = availableOption.value;
+                switchModel(selectId.replace('-select', ''), availableOption.value);
+            }
+        }
+
+        // Function to handle service-specific errors
+        function handleServiceError(service, message) {
+            showError(`${service} error: ${message}`);
+            updateStatus(`${service} error`);
+        }
+
+        // Function to handle model updates from the backend
+        function handleModelUpdate(data) {
+            const { modelType, modelName, status } = data;
+            if (status === 'success') {
+                showError(`Successfully switched ${modelType} to ${modelName}`);
+            } else {
+                showError(`Failed to switch ${modelType} to ${modelName}`);
+            }
+        }
+
+        // Add event listeners for the start/stop recording buttons
+        document.getElementById('start-recording').addEventListener('click', async () => {
+            try {
+                if (!isConnected()) {
+                    await connectWebSocket();
+                }
+                
+                document.getElementById('start-recording').disabled = true;
+                document.getElementById('stop-recording').disabled = false;
+                
+                await setupAudioProcessing();
+                
+                if (!isAudioSetupComplete()) {
+                    throw new Error('Audio setup incomplete');
+                }
+            } catch (error) {
+                console.error('Failed to start recording:', error);
+                showError('Failed to start recording: ' + error.message);
+                document.getElementById('start-recording').disabled = false;
+                document.getElementById('stop-recording').disabled = true;
+            }
+        });
+
+        document.getElementById('stop-recording').addEventListener('click', () => {
+            try {
+                document.getElementById('start-recording').disabled = false;
+                document.getElementById('stop-recording').disabled = true;
+                
+                if (scriptProcessor && scriptProcessor.port) {
+                    scriptProcessor.port.postMessage({ type: 'stop' });
+                }
+                
+                stopStreaming();
+            } catch (error) {
+                console.error('Error stopping recording:', error);
+                showError('Error stopping recording: ' + error.message);
+            }
+        });
+
+        document.getElementById('disconnect-btn').addEventListener('click', () => {
+            disconnect();
+        });
+
+        // Test WebSocket connection
+        ws.send(JSON.stringify({type: 'test', message: 'test'}));
+
+        // Monitor audio context state
+        console.log(audioContext.state);
+
+        // Check audio input
+        navigator.mediaDevices.enumerateDevices()
+            .then(devices => console.log(devices.filter(d => d.kind === 'audioinput')));
+
+        // Update the page unload handler to clean up resources
+        window.addEventListener('beforeunload', () => {
+            disconnect();
+        });
+
+        // Add this function to handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            try {
+                console.log('Processing WebSocket message:', data);
+                
+                switch (data.type) {
+                    case 'transcription':
+                        // Update transcription display
+                        const transcriptionElement = document.getElementById('transcription');
+                        if (transcriptionElement) {
+                            transcriptionElement.textContent = data.text || 'No transcription available';
+                        }
+                        break;
+
+                    case 'response':
+                        // Update AI response display
+                        const responseElement = document.getElementById('response');
+                        if (responseElement) {
+                            responseElement.textContent = data.text || 'No response available';
+                        }
+                        break;
+
+                    case 'error':
+                        // Handle error messages
+                        showError(data.message || 'Unknown error occurred');
+                        break;
+
+                    case 'status':
+                        // Update connection status
+                        updateStatus(data.status);
+                        break;
+
+                    case 'quota':
+                        // Update quota information
+                        updateQuotas();
+                        break;
+
+                    case 'model_update':
+                        // Handle model switching response
+                        handleModelUpdate(data);
+                        break;
+
+                    default:
+                        console.warn('Unknown message type:', data.type);
+                }
+            } catch (error) {
+                console.error('Error in handleWebSocketMessage:', error);
+                showError('Error processing server message: ' + error.message);
+            }
+        }
+
+        // Add connection status check
+        function isConnected() {
+            return ws && ws.readyState === WebSocket.OPEN;
+        }
+    </script>
+</body>
+</html>
